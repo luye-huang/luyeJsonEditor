@@ -2,9 +2,7 @@ var webpack = require('webpack');
 var path = require('path');
 
 module.exports = {
-  entry: [
-    'webpack/hot/only-dev-server',
-    './entry.js'],
+  entry: './entry.js',
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: 'bundle.js'
@@ -14,6 +12,7 @@ module.exports = {
     rules: [
       {
         test: /\.js$/,
+        exclude: /node_modules/,
         loader: 'babel-loader'
       },
       {
@@ -23,17 +22,13 @@ module.exports = {
         }, {
           loader: "css-loader"
         }, {
-          loader: "less-loader", options: {
-            strictMath: true,
-            noIeCompat: true
-          }
+          loader: "less-loader"
         }]
       }]
   },
   devServer: {
-    //contentBase: path.join(__dirname, "dist"),
-    //compress: true,
-    port: 9004,
+    contentBase: path.resolve(__dirname, "dist"),
+    port: 6004,
     hot: true
   },
   plugins: [
