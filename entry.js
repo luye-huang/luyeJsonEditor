@@ -5,9 +5,9 @@ import JsonEditor from './luyeJsonEditor/luyeJsonEditor';
 import './luyeJsonEditor/luyeJsonEditor.less';
 
 console.log('haddfdfdwwferwesqqq11a');
-if (module.hot) {
-  module.hot.accept();
-};
+// if (module.hot) {
+//   module.hot.accept();
+// };
 const param = {
   dom: document.getElementById('json-editor')
 };
