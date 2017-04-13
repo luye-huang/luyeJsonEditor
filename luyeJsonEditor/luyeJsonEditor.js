@@ -4,9 +4,10 @@
 
 import {dataSource} from './data';
 const $ = require('jquery');
-const _ = require('lodash');
+const forIn= require('lodash.forin');
+const cloneDeep= require('lodash.clonedeep');
 const separator = 'Æता';
-let relationDict = new Map();
+const dict = new Map();
 const rowElement = $('<div class="editor-row"><div class="editor-cell"></div></div>');
 export default class LuyeJsonEditor {
   constructor(param) {
@@ -20,13 +21,15 @@ export default class LuyeJsonEditor {
     }
     this.init();
     this.createDomBuilders();
-    this.render();
+    this.renderJson();
     this.attachToggleObjectsEvents();
     this.param.dom.html(this.container);
+    this.attachToggleObjectsEvents();
+    this.attachModifyCellEvents();
   }
 
   init() {
-    this.metadata = _.cloneDeep(this.param.data);
+    this.metadata = cloneDeep(this.param.data);
     this.container = $('<div class="editor-container"></div>');
     this.layer = 0;
     this.currentKey = '';
@@ -35,52 +38,84 @@ export default class LuyeJsonEditor {
 
   createDomBuilders() {
     const that = this;
-    this.rowObjectBuilder = new Proxy(rowElement, {
+    this.rowBuilder = new Proxy(rowElement, {
       get: function (target, property) {
-        return function (parentNode, key, nodeID) {
-          const node = $('<div class="editor-row"></div>');
-          node.attr({'id': nodeID, 'type': 'obj'}).append(`<div class="icon-unfold"></div><div class="editor-cell">${key}</div>`);
-          console.log(parentNode);
-          parentNode.append(node);
-          
-          relationDict.get(parentNode) && relationDict.get(parentNode).add(target);
-          return node;
+        if(property == 'obj'){
+          return function (parentNode, key, nodeID, layer) {
+            const node = $('<div class="editor-row" id="${nodeID}" style="left:${layer*24}px"></div>');
+            node.attr({'id': nodeID, 'type': 'obj'}).append(`<button class="row-btn">+</button><span class="editor-cell">${key}</span>`);
+            console.log(parentNode);
+            parentNode.append(node);
+            return node;
+          }
         }
-      }
-    });
-    this.rowStringBuilder = new Proxy(rowElement, {
-      get: function (target, property) {
-        return function (parentNode, key, value, nodeID) {
-          const txt = key + ':' + value;
-          target.attr({'id': nodeID, 'type': 'obj'}).text(txt);
-          var _target = target;
-          parentNode.append(`<div class="editor-row" id="${nodeID}" type="str"><div class="editor-cell">${txt}</div></div>`);
+        else if(property == 'str'){
+          return function (parentNode, key, value, nodeID, layer) {
+            const node = `<div class="editor-row" id="${nodeID}" type="str" style="left:${layer*24}px"><span class="editor-cell">${key}</span><span class="editor-cell">${value}</span></div>`;
+            parentNode.append(node);
+            return node;
+          }
+        }
+        else if(property == 'arr'){
+          return function (parentNode, key, value, nodeID, layer) {
+            const txt = key + ':' + value;
+            target.attr({'id': nodeID, 'type': 'arr'}).text(txt);
+            parentNode.append(`<div class="editor-row" id="${nodeID}" type="str" style="left:${layer*24}px"><span class="editor-cell">${key}</span><span class="editor-cell">${value}</span></div>`);
+          }
         }
       }
     });
   }
 
-  render(data = this.metadata, node = this.container) {
+  renderJson(data = this.metadata, node = this.container) {
     const that = this;
     this.layer ++;
-    _.forIn(data, function (value, key) {
+    forIn(data, function (value, key) {
       if (value.constructor == Object) {
-        relationDict.set(node, new Set());
         that.currentKey = [that.currentKey, key].join(separator);
-        that.render(value, that.rowObjectBuilder.create(node, key, that.currentKey));
+        that.renderJson(value, that.rowBuilder.obj(node, key, that.currentKey, that.layer));
       }
       else if (value.constructor == Array) {
+        that.currentKey = [that.currentKey, key].join(separator);
+        that.rowBuilder.arr(node, key, value, that.currentKey, that.layer);
+        // const nodeID='';
+        // const arrayNode = $(`<div class="editor-row" id="${nodeID}" type="arr" style="left:${that.layer*24}px"><span class="editor-cell">${key}</span></div>`);
+        // that.layer++;
+        // for(let item of value){
+        //   if(item.constructor == Object){
+        //     that.renderJson(item, that.rowBuilder.obj(arrayNode, key, that.currentKey, that.layer));
+        //   }
+        //   else{
+        //     that.rowBuilder.str(node, key, value, that.currentKey, that.layer);
+        //   }
+        // }
+        // node.append(arrayNode);
+        // that.layer--;
+        // that.rowBuilder.arr(node, key, value, that.currentKey, that.layer);
       }
       else {
-        that.rowStringBuilder.create(node, key, value, that.currentKey);
+        that.rowBuilder.str(node, key, value, that.currentKey, that.layer);
       }
     })
     this.layer --;
   }
 
   attachToggleObjectsEvents(){
-    $('.icon-unfold').click(function(){
-      console.log(relationDict.get($(this).closest()));
+    $('.row-btn').click(function(){
+      $(this).siblings('.editor-row').toggle();
+      const txt = $(this).text()=='+'?'-':'+';
+      $(this).text(txt);
+    });
+  }
+
+  attachModifyCellEvents(){
+    $('.editor-cell').dblclick(function(){
+      const cellValue = $(this).text();
+      $(this).html(`<input value="${cellValue}"/><button>确定</button>`);
+      $(this).find('button').click(function(){
+        const cellValue = $(this).prev().val();
+        $(this).parent().html(cellValue);
+      });
     });
   }
 }
