@@ -9,6 +9,7 @@ console.log('haddfdfdwwferwesqqq11a');
 //   module.hot.accept();
 // };
 const param = {
-  dom: document.getElementById('json-editor')
+  dom: document.getElementById('json-editor'),
+  layer:1
 };
 const editor = new JsonEditor(param);
