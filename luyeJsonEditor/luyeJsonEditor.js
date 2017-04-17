@@ -97,12 +97,24 @@ export default class LuyeJsonEditor {
     this.attachSubmitEvent(this.container.find('.btn-submit'));
   }
 
-  updateData(key, operation, isKey, value){
-    const arr = key.split(separator).shift();
-    key.split(separator).forEach(param => {
-      console.log(param)
-    });
-    this.metadata[arr[0]][arr[1]][arr[2]]= value;
+  updateData(data, keys, operation, isKey, value) {
+    const len = keys.length;
+    if (len < 2) {
+      if(isKey){
+        if (operation == 'modify') {
+          const temp = data[keys[0]];
+          data[value] = temp;
+        }
+      }
+      else{
+        if (operation == 'modify') {
+          data[keys[0]] = value;
+        }
+      }
+    }
+    else{
+      this.updateData(data[keys[0]], keys.splice(1), operation, isKey, value);
+    }
     console.log(this.metadata);
     console.log(this.param.data);
   }
@@ -145,11 +157,13 @@ export default class LuyeJsonEditor {
     node.dblclick(function () {
       const cellValue = $(this).text();
       $(this).html(`<input value="${cellValue}"/><button>确定</button>`);
+      $(this).find('button').off('click');
       $(this).find('button').click(function () {
         const cellValue = $(this).prev().val();
         const $parent = $(this).parent()
         $parent.html(cellValue);
-        that.updateData($parent.closest('div').attr('id'), 'modify', $parent.hasClass('editor-cell-key'), cellValue);
+        console.log($parent.closest('div').attr('id').split(separator).shift());
+        that.updateData(that.metadata, $parent.closest('div').attr('id').split(separator).splice(1), 'modify', $parent.hasClass('editor-cell-key'), cellValue);
       });
     });
   }
