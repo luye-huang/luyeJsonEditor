@@ -26,13 +26,12 @@ export default class LuyeJsonEditor {
     this.renderBoard();
     this.param.dom.html(this.container);
     this.attachSubmitEvent(this.container.find('.btn-submit'));
-    // this.attachModifyCellEvents();
-    this.unfoldAttrs();
+    this.unfoldAttrs(this.param.layer);
   }
 
   init() {
     this.metadata = cloneDeep(this.param.data);
-    this.container = $('<div class="editor-container" layer="0"></div>');
+    this.container = $('<div class="editor-container" layer="0"><button class="btn-add" style="margin-left: 48px">ADD</button></div>');
     this.layer = 0;
     this.currentKey = '';
   }
@@ -47,11 +46,12 @@ export default class LuyeJsonEditor {
             const id = [parentNode.attr('id'), key].join(separator);
             const node = $(`<div class="editor-row" id="${id}" type="obj" style="margin-left:${layer * 24}px" layer="${layer}">
                 <button class="front-btn row-btn-obj">+</button><span class="editor-cell editor-cell-key">${key}</span><span class="editor-cell">${txt}</span>
-                <button class="btn-del">Delete</button></div>`);
+                <button class="btn-add">ADD</button><button class="btn-del">DEL</button></div>`);
             parentNode.append(node);
             relations.set(id, value);
-            that.attachModifyCellEvents(node.find('span[class*="editor-cell-"]'));
             that.attachToggleObjectEvents(parentNode.find('button.row-btn-obj'));
+            that.attachModifyCellEvents(node.find('span[class*="editor-cell-"]'));
+            that.attachAddEvents(node.find('button.btn-add'));
             that.attachDeleteEvents(parentNode.find('button.btn-del'));
           }
         }
@@ -60,7 +60,7 @@ export default class LuyeJsonEditor {
             const id = [parentNode.attr('id'), key].join(separator);
             const node = $(`<div class="editor-row" id="${id}" type="str" style="margin-left:${layer * 24 + 24}px" layer="${layer}">
                 <span class="editor-cell editor-cell-key">${key}</span><span class="editor-cell editor-cell-value">${value}</span>
-                <button class="btn-del">Delete</button></div>`);
+                <button class="btn-del">DEL</button></div>`);
             parentNode.append(node);
             that.attachModifyCellEvents(node.find('span[class*="editor-cell-"]'));
             that.attachDeleteEvents(parentNode.find('button.btn-del'));
@@ -68,15 +68,16 @@ export default class LuyeJsonEditor {
         }
         else if (property == 'arr') {
           return function (parentNode, key, value, layer) {
-            const txt = `[0-${value.length}]`;
+            const txt = `[0-<span class="arr-len">${value.length}</span>]`;
             const id = [parentNode.attr('id'), key].join(separator);
             const node = $(`<div class="editor-row" id="${id}" type="arr" style="margin-left:${layer * 24}px" layer="${layer}">
                 <button class="front-btn row-btn-arr">+</button><span class="editor-cell">${key}</span><span class="editor-cell">${txt}</span>
-                <button class="btn-del">Delete</button></div>`);
+                <button class="btn-add">ADD</button><button class="btn-del">DEL</button></div>`);
             parentNode.append(node);
             relations.set(id, value);
-            that.attachModifyCellEvents(node.find('span[class*="editor-cell-"]'));
             that.attachToggleObjectEvents(parentNode.find('button.row-btn-arr'));
+            that.attachModifyCellEvents(node.find('span[class*="editor-cell-"]'));
+            that.attachAddEvents(node.find('button.btn-add'));
             that.attachDeleteEvents(parentNode.find('button.btn-del'));
           }
         }
@@ -103,11 +104,13 @@ export default class LuyeJsonEditor {
 
   renderBoard() {
     this.container.append(`<div class="json-dashboard"><button></button><button class="btn-submit">submit</button></div>`);
+    this.attachAddEvents(this.container.find('button.btn-add'));
     this.attachSubmitEvent(this.container.find('.btn-submit'));
   }
 
-  updateData({data = this.metadata, keys, operation, value, isKey = false}) {
+  updateData({data = this.metadata, keys, id, operation, key, value, isKey = false}) {
     const len = keys.length;
+    const originalData = cloneDeep(data);
     if (operation == 'modify') {
       if (len < 2) {
         if (isKey) {
@@ -123,43 +126,99 @@ export default class LuyeJsonEditor {
       }
     }
     else if (operation == 'delete') {
+      // map method as an alternative for recursive
+      // const idArr = id.split(separator);
+      // const attr = idArr.pop();
+      // const finalKey = idArr.join(separator);
+      // let finalValue;
+      // if (finalKey == undefined || finalKey.length == 0){
+      //   finalValue = this.metadata;
+      // }
+      // else{
+      //   finalValue = relations.get(finalKey);
+      // }
+      // delete finalValue[attr];
+      // debugger
+      // console.log(relations.get(id));
       if (len == 2) {
-        const [key,...tail] = keys;
-        const obj = data[key]
+        const [head,...tail] = keys;
+        let obj = data[head];
         delete obj[tail];
+        obj.constructor == Array && (obj = this.purifyArray(obj));
       }
       else if (len == 1) {
         delete data[keys[0]];
+        data.constructor == Array && (data = this.purifyArray(data));
       }
       else {
-
+        this.updateData({data: data[keys[0]], keys: keys.splice(1), operation});
       }
+    }
+    else if (operation == 'add') {
+      const idArr = id.split(separator);
+      const attr = idArr.pop();
+      const finalKey = idArr.join(separator);
+      let finalValue;
+      if (finalKey == undefined || finalKey.length == 0) {
+        finalValue = this.metadata;
+      }
+      else {
+        finalValue = relations.get(finalKey);
+      }
+      if (finalValue[attr].constructor == Array) {
+        finalValue[attr].push(value);
+      }
+      else {
+        finalValue[attr][key] = value;
+      }
+
+      // if (len == 1) {
+      //   data[keys[0]][key] = value;
+      // }
+      // else if (len == 0) {
+      //   data[key] = value;
+      // }
+      // else {
+      //   this.updateData({data: data[keys[0]], keys: keys.splice(1), operation, key, value});
+      // }
     }
     console.log(this.metadata);
     console.log(this.param.data);
-    return this.metadata !== this.param.data;
+    return originalData !== data;
+  }
+
+  updateAddedDom(node, key, value) {
+    // let id = node.attr('id');
+    // id = [id, key].join(separator);
+    let layer = node.attr('layer');
+    layer++;
+    const $btn = node.find('.btn-add');
+    $btn.siblings('.adding-dom').toggle();
+    this.rowBuilder.str(node, key, value, layer);
+    console.log(node);
   }
 
   updateDeletedDom(node) {
     console.log(node);
     if (node.parent().attr('type') == 'arr') {
       const index = Number.parseInt(node.find('.editor-cell-key').text());
-      const rows = Array.from(node.siblings('.editor-row'));
-      rows.filter((row)=>Number.parseInt($(row).find('.editor-cell-key').text()) > index).map((row)=> {
+      const len = node.parent().find('.arr-len').text();
+      node.parent().find('.arr-len').text(Number.parseInt(len) - 1);
+      Array.from(node.siblings('.editor-row')).filter((row)=>Number.parseInt($(row).find('.editor-cell-key').text()) > index).map((row)=> {
         const decreasedValue = Number.parseInt($(row).find('.editor-cell-key').text()) - 1;
         let id = $(row).attr('id').split(separator);
         id.pop();
         id.push(decreasedValue);
         // id = id.splice(id.length - 1, 1, decreasedValue);
-        console.log(id);
         $(row).attr('id', id.join(separator));
         $(row).find('.editor-cell-key').text(decreasedValue);
       });
-      console.log(index);
     }
     node.remove();
-    // node.parent().find('button.front-btn').trigger('click');
-    // node.parent().find('button.front-btn').trigger('click');
+  }
+
+  purifyArray(array){
+    return array.filter((item)=>item != undefined && item != null);
   }
 
   attachToggleObjectEvents(node) {
@@ -171,7 +230,9 @@ export default class LuyeJsonEditor {
       $(this).text(txt);
       if (txt == '-') {
         let currentKey = parentNode.attr('id');
-        const data = relations.get(currentKey);
+        let data = relations.get(currentKey);
+        // take out empty array elements
+        data.constructor == Array && (data = data.filter((item)=>item != undefined && item != null));
         that.renderJson(data, parentNode);
       }
       else {
@@ -194,14 +255,50 @@ export default class LuyeJsonEditor {
     });
   }
 
+  attachAddEvents(node) {
+    const that = this;
+    node.off('click');
+    node.click(function () {
+      const $parent = $(this).parent();
+      if($(this).parent().attr('type') === 'arr'){
+        const length = $(this).parent().find('.arr-len').text();
+        $(this).before(`<input class="adding-dom" value="${length}" readonly/><input class="adding-dom" autofocus/><button class="adding-dom">确定</button>`);
+      }
+      else{
+        $(this).before(`<input class="adding-dom" autofocus/><input class="adding-dom"/><button class="adding-dom">确定</button>`);
+      }
+      $(this).siblings('button').off();
+      $(this).siblings('button').click(function () {
+        const value = $(this).prev().val();
+        const key = $(this).prev().prev().val();
+        let keys = $parent.attr('id')
+        try {
+          keys = keys.split(separator).splice(1);
+        } catch (err) {
+          keys = [];
+        }
+        if (key.length == 0) {
+          return;
+        }
+        else {
+          new Promise((resolve)=> {
+            if (that.updateData({id: $parent.attr('id'), operation: 'add', keys, key, value})) {
+              resolve();
+            }
+          }).then(that.updateAddedDom($parent, key, value));
+        }
+      });
+    });
+  }
+
   attachDeleteEvents(node) {
     const that = this;
     node.off('click');
     node.click(function () {
-      console.log($(this));
       const $parent = $(this).parent();
       new Promise((resolve, reject)=> {
         if (that.updateData({
+            id: $parent.attr('id'),
             keys: $parent.attr('id').split(separator).splice(1),
             operation: 'delete'
           })) {
@@ -211,7 +308,6 @@ export default class LuyeJsonEditor {
           alert('deleting fails');
         }
       }).then(that.updateDeletedDom($parent));
-
     });
   }
 
@@ -241,7 +337,6 @@ export default class LuyeJsonEditor {
   }
 
   unfoldAttrs(layer = 3) {
-    (this.param.layer || this.param.layer === 0) && (layer = this.param.layer);
     for (let i = 1; i <= layer; i++) {
       console.log(this.container.find('.editor-row[layer="' + i + '"] button'));
       this.container.find('.editor-row[layer="' + i + '"] button.front-btn').trigger('click');
