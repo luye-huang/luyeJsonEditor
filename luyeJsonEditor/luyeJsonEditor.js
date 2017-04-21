@@ -12,7 +12,7 @@ const relations = new Map();
 
 export default class LuyeJsonEditor {
   constructor(param) {
-    this.param = {};
+    this.param = {arrPartialLength: 10};
     Object.assign(this.param, param);
     if (!(this.param.dom instanceof $)) {
       this.param.dom = $(this.param.dom);
@@ -22,16 +22,11 @@ export default class LuyeJsonEditor {
     }
     this.init();
     this.createDomBuilders();
-    this.renderJson();
-    this.renderBoard();
-    this.param.dom.html(this.container);
-    this.attachSubmitEvent(this.container.find('.btn-submit'));
-    this.unfoldAttrs(this.param.layer);
+    this.render();
   }
 
   init() {
     this.metadata = cloneDeep(this.param.data);
-    this.container = $('<div class="editor-container" layer="0"><button class="btn-add" style="margin-left: 48px">ADD</button></div>');
     this.layer = 0;
     this.currentKey = '';
   }
@@ -85,6 +80,14 @@ export default class LuyeJsonEditor {
     });
   }
 
+  render() {
+    this.container = $('<div class="editor-container" layer="0"><button class="btn-add" style="margin-left: 48px">ADD</button></div>');
+    this.renderJson();
+    this.renderBoard();
+    this.param.dom.html(this.container);
+    this.unfoldAttrs(this.param.layer);
+  }
+
   renderJson(data = this.metadata, node = this.container) {
     const that = this;
     let layer = Number.parseInt(node.attr('layer'));
@@ -103,9 +106,12 @@ export default class LuyeJsonEditor {
   }
 
   renderBoard() {
-    this.container.append(`<div class="json-dashboard"><button></button><button class="btn-submit">submit</button></div>`);
+    this.container.append(`<div class="preview-board">${JSON.stringify(this.metadata)}</div><div class="json-dashboard">
+        <button class="btn-preview">PREVIEW</button><button class="btn-reset">RESET</button><button class="btn-submit">SUBMIT</button></div>`);
     this.attachAddEvents(this.container.find('button.btn-add'));
     this.attachSubmitEvent(this.container.find('.btn-submit'));
+    this.attachPreviewEvent();
+    this.attachResetEvent();
   }
 
   updateData({data = this.metadata, keys, id, operation, key, value, isKey = false}) {
@@ -171,31 +177,23 @@ export default class LuyeJsonEditor {
       else {
         finalValue[attr][key] = value;
       }
-
-      // if (len == 1) {
-      //   data[keys[0]][key] = value;
-      // }
-      // else if (len == 0) {
-      //   data[key] = value;
-      // }
-      // else {
-      //   this.updateData({data: data[keys[0]], keys: keys.splice(1), operation, key, value});
-      // }
     }
     console.log(this.metadata);
     console.log(this.param.data);
     return originalData !== data;
   }
 
-  updateAddedDom(node, key, value) {
-    // let id = node.attr('id');
-    // id = [id, key].join(separator);
-    let layer = node.attr('layer');
-    layer++;
+  updateAddedDom(node, key, value, closed) {
     const $btn = node.find('.btn-add');
     $btn.siblings('.adding-dom').toggle();
-    this.rowBuilder.str(node, key, value, layer);
-    console.log(node);
+    if (closed) {
+      node.find('.front-btn').trigger('click');
+    }
+    else {
+      let layer = node.attr('layer');
+      layer++;
+      this.rowBuilder.str(node, key, value, layer);
+    }
   }
 
   updateDeletedDom(node) {
@@ -217,7 +215,7 @@ export default class LuyeJsonEditor {
     node.remove();
   }
 
-  purifyArray(array){
+  purifyArray(array) {
     return array.filter((item)=>item != undefined && item != null);
   }
 
@@ -241,16 +239,37 @@ export default class LuyeJsonEditor {
     });
   }
 
-  attachToggleArrayEvents() {
+  attachToggleArrayEvents(node) {
     var that = this;
-    $('.row-btn-arr').click(function () {
+    node.off('click');
+    node.click(function () {
       const parentNode = $(this).parent();
       const txt = $(this).text() == '+' ? '-' : '+';
       $(this).text(txt);
       if (txt == '-') {
-        let currentKey = parentNode.attr('id');
-        const data = relations.get(currentKey);
-        that.renderJson(data, parentNode);
+        let id = parentNode.attr('id');
+        const value = relations.get(id);
+        const len = value.length;
+        const layer = Number.parseInt(parentNode.attr('layer')) + 1;
+        if (len > that.param.arrPartialLength) {
+          for (let i = 0; i < len; i += that.param.arrPartialLength) {
+            const idRow = id + i;
+            const endIndex = i + that.param.arrPartialLength > len ? len : i + that.param.arrPartialLength;
+            const txt = `[${i}-<span class="arr-len">${endIndex}</span>]`;
+            console.log(endIndex);
+            parentNode.append(`<div class="editor-row" id="${idRow}" type="arr" layer="${layer}"><button class="front-btn row-btn-arr">+</button><span class="editor-cell">${txt}</span></div>`);
+            relations.set(idRow, value.slice(i, endIndex));
+            that.attachToggleArrayEvents(parentNode.find('button.row-btn-arr'));
+          }
+        }
+        else {
+          let currentKey = parentNode.attr('id');
+          const data = relations.get(currentKey);
+          that.renderJson(data, parentNode);
+        }
+      }
+      else {
+        $(this).siblings('.editor-row').remove();
       }
     });
   }
@@ -260,15 +279,24 @@ export default class LuyeJsonEditor {
     node.off('click');
     node.click(function () {
       const $parent = $(this).parent();
-      if($(this).parent().attr('type') === 'arr'){
+      if ($(this).parent().attr('type') === 'arr') {
         const length = $(this).parent().find('.arr-len').text();
-        $(this).before(`<input class="adding-dom" value="${length}" readonly/><input class="adding-dom" autofocus/><button class="adding-dom">确定</button>`);
+        $(this).before(`<input class="adding-dom" value="${length}" readonly/><input class="adding-dom" autofocus/>
+            <button class="btn-adding adding-dom">确定</button><button class="btn-cancel adding-dom">取消</button>`);
       }
-      else{
-        $(this).before(`<input class="adding-dom" autofocus/><input class="adding-dom"/><button class="adding-dom">确定</button>`);
+      else {
+        $(this).before(`<input class="adding-dom" autofocus/><input class="adding-dom"/>
+            <button class="btn-adding adding-dom">确定</button><button class="btn-cancel adding-dom">取消</button>`);
       }
-      $(this).siblings('button').off();
-      $(this).siblings('button').click(function () {
+      $(this).toggle().next().toggle();
+      $(this).siblings('button.btn-cancel').off('click');
+      $(this).siblings('button.btn-cancel').click(function () {
+        $(this).parent().children('.adding-dom').toggle();
+        $(this).siblings('.btn-add').toggle();
+        $(this).siblings('.btn-del').toggle();
+      });
+      $(this).siblings('button.btn-adding').off('click');
+      $(this).siblings('button.btn-adding').click(function () {
         const value = $(this).prev().val();
         const key = $(this).prev().prev().val();
         let keys = $parent.attr('id')
@@ -277,15 +305,16 @@ export default class LuyeJsonEditor {
         } catch (err) {
           keys = [];
         }
-        if (key.length == 0) {
+        if ($.trim(key) == 0) {
           return;
         }
         else {
           new Promise((resolve)=> {
             if (that.updateData({id: $parent.attr('id'), operation: 'add', keys, key, value})) {
+              $(this).siblings('.btn-add').toggle().siblings('.btn-del').toggle();
               resolve();
             }
-          }).then(that.updateAddedDom($parent, key, value));
+          }).then(that.updateAddedDom($parent, key, value, $(this).siblings('.front-btn').text() === '+'));
         }
       });
     });
@@ -315,15 +344,16 @@ export default class LuyeJsonEditor {
     const that = this;
     node.off('dblclick');
     node.dblclick(function () {
+      let cellValue;
       if (!$(this).has('input').length) {
-        const cellValue = $(this).text();
-        $(this).html(`<input value="${cellValue}" autofocus/><button>确定</button>`);
+        cellValue = $(this).text();
+        $(this).html(`<input value="${cellValue}" autofocus/><button class="btn-modify">确定</button><button class="btn-cancel">取消</button>`).addClass('transparent');
       }
-      $(this).find('button').off('click');
-      $(this).find('button').click(function () {
+      $(this).find('.btn-modify').off('click');
+      $(this).find('.btn-modify').click(function () {
         const cellValue = $(this).prev().val();
         const $parent = $(this).parent();
-        $parent.html(cellValue);
+        $parent.html(cellValue).removeClass('transparent');
         console.log($parent.closest('div').attr('id').split(separator).shift());
         // specify param data?
         that.updateData({
@@ -333,17 +363,30 @@ export default class LuyeJsonEditor {
           isKey: $parent.hasClass('editor-cell-key')
         });
       });
+      $(this).find('.btn-cancel').click(function () {
+        $(this).parent().html(cellValue).removeClass('transparent');
+      });
+    });
+  }
+
+  attachSubmitEvent(btn) {
+    btn.click(()=>console.log(this.metadata))
+  }
+
+  attachPreviewEvent() {
+    this.container.find('.btn-preview').click(()=>$('.preview-board').text(JSON.stringify(this.metadata)).toggle(500));
+  }
+
+  attachResetEvent() {
+    this.container.find('.btn-reset').click(()=> {
+      this.metadata = cloneDeep(this.param.data);
+      this.render();
     });
   }
 
   unfoldAttrs(layer = 3) {
     for (let i = 1; i <= layer; i++) {
-      console.log(this.container.find('.editor-row[layer="' + i + '"] button'));
       this.container.find('.editor-row[layer="' + i + '"] button.front-btn').trigger('click');
     }
-  }
-
-  attachSubmitEvent(btn) {
-    btn.click(()=>console.log(this.metadata))
   }
 }
