@@ -38,7 +38,13 @@ export default class LuyeJsonEditor {
         if (property == 'obj') {
           return function (parentNode, key, value, layer) {
             const txt = `{...}`;
-            const id = [parentNode.attr('id'), key].join(separator);
+            let id = parentNode.attr('id');
+            if (id && id !== 0) {
+              id = [id, key].join(separator);
+            }
+            else {
+              id = [parentNode.parent().attr('id'), key].join(separator);
+            }
             const node = $(`<div class="editor-row" id="${id}" type="obj" style="margin-left:${layer * 24}px" layer="${layer}">
                 <button class="front-btn row-btn-obj">+</button><span class="editor-cell editor-cell-key">${key}</span><span class="editor-cell">${txt}</span>
                 <button class="btn-add">ADD</button><button class="btn-del">DEL</button></div>`);
@@ -64,13 +70,20 @@ export default class LuyeJsonEditor {
         else if (property == 'arr') {
           return function (parentNode, key, value, layer) {
             const txt = `[0-<span class="arr-len">${value.length}</span>]`;
-            const id = [parentNode.attr('id'), key].join(separator);
+            let id = parentNode.attr('id');
+            if (id && id !== 0) {
+              id = [id, key].join(separator);
+            }
+            else {
+              id = [parentNode.parent().attr('id'), key].join(separator);
+            }
             const node = $(`<div class="editor-row" id="${id}" type="arr" style="margin-left:${layer * 24}px" layer="${layer}">
                 <button class="front-btn row-btn-arr">+</button><span class="editor-cell">${key}</span><span class="editor-cell">${txt}</span>
                 <button class="btn-add">ADD</button><button class="btn-del">DEL</button></div>`);
             parentNode.append(node);
             relations.set(id, value);
-            that.attachToggleObjectEvents(parentNode.find('button.row-btn-arr'));
+            // that.attachToggleObjectEvents(parentNode.find('button.row-btn-arr'));
+            that.attachToggleArrayEvents(parentNode.find('button.row-btn-arr'));
             that.attachModifyCellEvents(node.find('span[class*="editor-cell-"]'));
             that.attachAddEvents(node.find('button.btn-add'));
             that.attachDeleteEvents(parentNode.find('button.btn-del'));
@@ -93,6 +106,9 @@ export default class LuyeJsonEditor {
     let layer = Number.parseInt(node.attr('layer'));
     layer++;
     loEach(data, function (value, key) {
+      if (node.attr('offset') === '0' || node.attr('offset')) {
+        key += Number.parseInt(node.attr('offset'));
+      }
       if (value.constructor == Object) {
         that.rowBuilder.obj(node, key, value, layer);
       }
@@ -147,10 +163,15 @@ export default class LuyeJsonEditor {
       // debugger
       // console.log(relations.get(id));
       if (len == 2) {
-        const [head,...tail] = keys;
-        let obj = data[head];
-        delete obj[tail];
-        obj.constructor == Array && (obj = this.purifyArray(obj));
+        const [head,tail] = keys;
+        if (data[head].constructor == Array) {
+          const endIndex = Number.parseInt(tail);
+          delete data[head][endIndex];
+          data[head] = this.purifyArray(data[head]);
+        }
+        else {
+          delete data[head][tail];
+        }
       }
       else if (len == 1) {
         delete data[keys[0]];
@@ -200,8 +221,10 @@ export default class LuyeJsonEditor {
     console.log(node);
     if (node.parent().attr('type') == 'arr') {
       const index = Number.parseInt(node.find('.editor-cell-key').text());
-      const len = node.parent().find('.arr-len').text();
+      let len = node.parent().find('.arr-len').text();
       node.parent().find('.arr-len').text(Number.parseInt(len) - 1);
+      len = node.parent().parent().find('.arr-len')[0].innerHTML;
+      node.parent().parent().find('.arr-len')[0].innerHTML = Number.parseInt(len) - 1;
       Array.from(node.siblings('.editor-row')).filter((row)=>Number.parseInt($(row).find('.editor-cell-key').text()) > index).map((row)=> {
         const decreasedValue = Number.parseInt($(row).find('.editor-cell-key').text()) - 1;
         let id = $(row).attr('id').split(separator);
@@ -248,6 +271,9 @@ export default class LuyeJsonEditor {
       $(this).text(txt);
       if (txt == '-') {
         let id = parentNode.attr('id');
+        if (!id && (id !== 0)) {
+          id = parentNode.attr('_id');
+        }
         const value = relations.get(id);
         const len = value.length;
         const layer = Number.parseInt(parentNode.attr('layer')) + 1;
@@ -257,13 +283,16 @@ export default class LuyeJsonEditor {
             const endIndex = i + that.param.arrPartialLength > len ? len : i + that.param.arrPartialLength;
             const txt = `[${i}-<span class="arr-len">${endIndex}</span>]`;
             console.log(endIndex);
-            parentNode.append(`<div class="editor-row" id="${idRow}" type="arr" layer="${layer}"><button class="front-btn row-btn-arr">+</button><span class="editor-cell">${txt}</span></div>`);
+            parentNode.append(`<div class="editor-row" _id="${idRow}" offset="${i}" type="arr" layer="${layer}"><button class="front-btn row-btn-arr">+</button><span class="editor-cell">${txt}</span></div>`);
             relations.set(idRow, value.slice(i, endIndex));
             that.attachToggleArrayEvents(parentNode.find('button.row-btn-arr'));
           }
         }
         else {
           let currentKey = parentNode.attr('id');
+          if (!currentKey && (currentKey !== 0)) {
+            currentKey = parentNode.attr('_id');
+          }
           const data = relations.get(currentKey);
           that.renderJson(data, parentNode);
         }
