@@ -78,7 +78,7 @@ export default class LuyeJsonEditor {
               id = [parentNode.parent().attr('id'), key].join(separator);
             }
             const node = $(`<div class="editor-row" id="${id}" type="arr" style="margin-left:${layer * 24}px" layer="${layer}">
-                <button class="front-btn row-btn-arr">+</button><span class="editor-cell">${key}</span><span class="editor-cell">${txt}</span>
+                <button class="front-btn row-btn-arr">+</button><span class="editor-cell editor-cell-key">${key}</span><span class="editor-cell">${txt}</span>
                 <button class="btn-add">ADD</button><button class="btn-del">DEL</button></div>`);
             parentNode.append(node);
             relations.set(id, value);
@@ -207,18 +207,19 @@ export default class LuyeJsonEditor {
   updateAddedDom(node, key, value, closed) {
     const $btn = node.find('.btn-add');
     $btn.siblings('.adding-dom').toggle();
-    if (closed) {
-      node.find('.front-btn').trigger('click');
-    }
-    else {
-      let layer = node.attr('layer');
-      layer++;
-      this.rowBuilder.str(node, key, value, layer);
-    }
+    node.find('.front-btn').trigger('click');
+    node.find('.front-btn').trigger('click');
+    // if (closed) {
+    //   node.find('.front-btn').trigger('click');
+    // }
+    // else {
+    //   let layer = node.attr('layer');
+    //   layer++;
+    //   this.rowBuilder.str(node, key, value, layer);
+    // }
   }
 
   updateDeletedDom(node) {
-    console.log(node);
     if (node.parent().attr('type') == 'arr') {
       const index = Number.parseInt(node.find('.editor-cell-key').text());
       let len = node.parent().find('.arr-len').text();
@@ -283,7 +284,7 @@ export default class LuyeJsonEditor {
             const endIndex = i + that.param.arrPartialLength > len ? len : i + that.param.arrPartialLength;
             const txt = `[${i}-<span class="arr-len">${endIndex}</span>]`;
             console.log(endIndex);
-            parentNode.append(`<div class="editor-row" _id="${idRow}" offset="${i}" type="arr" layer="${layer}"><button class="front-btn row-btn-arr">+</button><span class="editor-cell">${txt}</span></div>`);
+            parentNode.append(`<div class="editor-row" _id="${idRow}" offset="${i}" type="arr" layer="${layer}" style="padding-left:12px"><button class="front-btn row-btn-arr">+</button><span class="editor-cell">${txt}</span></div>`);
             relations.set(idRow, value.slice(i, endIndex));
             that.attachToggleArrayEvents(parentNode.find('button.row-btn-arr'));
           }
@@ -308,13 +309,16 @@ export default class LuyeJsonEditor {
     node.off('click');
     node.click(function () {
       const $parent = $(this).parent();
+      $(this).siblings('.adding-dom').remove();
       if ($(this).parent().attr('type') === 'arr') {
-        const length = $(this).parent().find('.arr-len').text();
-        $(this).before(`<input class="adding-dom" value="${length}" readonly/><input class="adding-dom" autofocus/>
+        const length = $(this).parent().find('.arr-len')[0].innerHTML;
+        $(this).before(`<select class="adding-dom" onchange="this.parentNode.querySelectorAll('input')[1].style.visibility = this.value !== 'str'?'hidden':'visible'"><option selected value="str">String</option><option value="arr">Array</option><option value="obj">Object</option></select>
+            <input class="adding-dom" value="${length}" readonly/><input class="adding-dom" autofocus/>
             <button class="btn-adding adding-dom">确定</button><button class="btn-cancel adding-dom">取消</button>`);
       }
       else {
-        $(this).before(`<input class="adding-dom" autofocus/><input class="adding-dom"/>
+        $(this).before(`<select class="adding-dom" onchange="this.parentNode.querySelectorAll('input')[1].style.visibility = this.value !== 'str'?'hidden':'visible'"><option selected value="str">String</option><option value="arr">Array</option><option value="obj">Object</option></select>
+            <input class="adding-dom" autofocus/><input class="adding-dom"/>
             <button class="btn-adding adding-dom">确定</button><button class="btn-cancel adding-dom">取消</button>`);
       }
       $(this).toggle().next().toggle();
@@ -326,15 +330,21 @@ export default class LuyeJsonEditor {
       });
       $(this).siblings('button.btn-adding').off('click');
       $(this).siblings('button.btn-adding').click(function () {
-        const value = $(this).prev().val();
+        let value = $(this).prev().val();
+        if ($(this).siblings('select').val() == 'arr') {
+          value = [];
+        }
+        else if ($(this).siblings('select').val() == 'obj') {
+          value = {};
+        }
         const key = $(this).prev().prev().val();
-        let keys = $parent.attr('id')
+        let keys = $parent.attr('id');
         try {
           keys = keys.split(separator).splice(1);
         } catch (err) {
           keys = [];
         }
-        if ($.trim(key) == 0) {
+        if ($.trim(key) == '') {
           return;
         }
         else {
