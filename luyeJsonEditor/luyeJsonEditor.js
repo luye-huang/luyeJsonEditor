@@ -220,7 +220,6 @@ export default class LuyeJsonEditor {
         let id = $(row).attr('id').split(separator);
         id.pop();
         id.push(decreasedValue);
-        // id = id.splice(id.length - 1, 1, decreasedValue);
         $(row).attr('id', id.join(separator));
         $(row).find('.editor-cell-key').text(decreasedValue);
       });
@@ -232,9 +231,9 @@ export default class LuyeJsonEditor {
     return array.filter((item)=>item != undefined && item != null);
   }
 
-  attachEventsDelegation(){
+  attachEventsDelegation() {
     const that = this;
-    this.container.delegate('button.row-btn-obj', 'click', function(){
+    this.container.delegate('button.row-btn-obj', 'click', function () {
       const parentNode = $(this).parent();
       const txt = $(this).text() == '+' ? '-' : '+';
       $(this).text(txt);
@@ -246,7 +245,7 @@ export default class LuyeJsonEditor {
       else {
         $(this).siblings('.editor-row').remove();
       }
-    }).delegate('button.row-btn-arr', 'click', function(){
+    }).delegate('button.row-btn-arr', 'click', function () {
       const parentNode = $(this).parent();
       const txt = $(this).text() == '+' ? '-' : '+';
       $(this).text(txt);
@@ -280,7 +279,7 @@ export default class LuyeJsonEditor {
       else {
         $(this).siblings('.editor-row').remove();
       }
-    }).delegate('button.btn-add', 'click', function(){
+    }).delegate('button.btn-add', 'click', function () {
       $(this).siblings('.adding-dom').remove();
       if ($(this).parent().attr('type') === 'arr') {
         const length = $(this).parent().find('.arr-len')[0].innerHTML;
@@ -294,11 +293,11 @@ export default class LuyeJsonEditor {
             <button class="btn-adding adding-dom">确定</button><button class="btn-cancel adding-dom">取消</button>`);
       }
       $(this).toggle().next().toggle();
-    }).delegate('button.btn-cancel', 'click', function(){
+    }).delegate('button.btn-cancel', 'click', function () {
       $(this).parent().children('.adding-dom').toggle();
       $(this).siblings('.btn-add').toggle();
       $(this).siblings('.btn-del').toggle();
-    }).delegate('button.btn-adding', 'click', function(){
+    }).delegate('button.btn-adding', 'click', function () {
       const $parent = $(this).parent();
       let value = $(this).prev().val();
       if ($(this).siblings('select').val() == 'arr') {
@@ -339,13 +338,13 @@ export default class LuyeJsonEditor {
           alert('deleting fails');
         }
       }).then(that.updateDeletedDom($parent));
-    }).delegate('span[class*="editor-cell-"]', 'dblclick', function(){
+    }).delegate('span[class*="editor-cell-"]', 'dblclick', function () {
       let cellValue;
       if (!$(this).has('input').length) {
         cellValue = $(this).text();
         $(this).html(`<input value="${cellValue}" autofocus/><button class="btn-modify">确定</button><button class="btn-modify-cancel">取消</button>`).addClass('transparent');
       }
-    }).delegate('.btn-modify', 'click', function(){
+    }).delegate('.btn-modify', 'click', function () {
       const cellValue = $(this).prev().val();
       const $parent = $(this).parent();
       $parent.html(cellValue).removeClass('transparent');
@@ -356,7 +355,7 @@ export default class LuyeJsonEditor {
         value: cellValue,
         isKey: $parent.hasClass('editor-cell-key')
       });
-    }).delegate('.btn-modify-cancel', 'click', function(){
+    }).delegate('.btn-modify-cancel', 'click', function () {
       const cellValue = this.previousSibling.previousSibling.value;
       $(this).parent().html(cellValue).removeClass('transparent');
     })
